@@ -40,7 +40,7 @@ e^{i\pi} = @cos \pi@ + i@sin \pi@
 @@csv ccc
 example table
 test1,test2,test3
-$@si 163 cm@$,$@si 171 cm@$,$@si 178 cm@$
+$@SI 163 cm@$,$@SI 171 cm@$,$@SI 178 cm@$
 ```
 
 ```

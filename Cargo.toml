@@ -3,6 +3,8 @@ name = "dtex"
 version = "0.1.0"
 edition = "2021"
 authors = ["Takumi Mori"]
+license = "MIT"
+description = "Better TeX"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

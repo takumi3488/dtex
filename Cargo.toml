@@ -1,0 +1,14 @@
+[package]
+name = "dtex"
+version = "0.1.0"
+edition = "2021"
+authors = ["Takumi Mori"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.4.10", features = ["derive"] }
+csv = "1.3.0"
+regex = "1.10.2"
+tectonic = { version = "0.14.1", features = ["native-tls-vendored"] }
+yaml-rust = "0.4.5"

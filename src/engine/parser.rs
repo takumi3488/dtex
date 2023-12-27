@@ -1,5 +1,5 @@
 use regex::Regex;
-use std::{error::Error, fmt::Display, mem::take};
+use std::{error::Error, fmt::Display, mem::take, io::{BufReader, BufRead}, fs::File};
 use yaml_rust::YamlLoader;
 
 #[derive(Debug)]
@@ -38,11 +38,12 @@ pub fn to_latex(expr: &str) -> Result<String, ParseError> {
     let insert_end_document = in_front_matter;
 
     // 結果
-    let mut res = vec![];
+    let mut res: Vec<String> = vec![];
 
     // 正規表現
     let decorator_regex = Regex::new(r"^(@{1,2})([a-zA-Z][0-9a-zA-Z]+)(\s+\S+)*\s*$").unwrap();
     let empty_line_regex = Regex::new(r"^\s*$").unwrap();
+    let input_or_include_regex = Regex::new(r"^@(input|include)\s+(\S+)\s*$").unwrap();
 
     // 数式
     let equation_regex = Regex::new(r"^(equation|align)\*?$").unwrap();
@@ -168,6 +169,21 @@ pub fn to_latex(expr: &str) -> Result<String, ParseError> {
         // 本文の処理
         if line.contains("$$") {
             return Err(ParseError::UnsupportedIdentifier("$$".to_string()));
+        } else if let Some(caps) = input_or_include_regex.captures(line) {
+            // inputとincludeの処理
+            let type_ = caps.get(1).unwrap().as_str();
+            let mut path = caps.get(2).unwrap().as_str().to_string();
+            if !path.ends_with(".tex") {
+                path.push_str(".tex");
+            }
+            if type_ == "include" {
+                res.push("\\newpage".to_string());
+            }
+            for l in BufReader::new(File::open(&path).expect(&format!("{} is not found", path))).lines() {
+                if let Ok(l) = l {
+                    res.push(l);
+                }
+            }
         } else if let Some(caps) = decorator_regex.captures(line) {
             // デコレーターの処理
             let type_ = caps.get(1).unwrap().as_str();

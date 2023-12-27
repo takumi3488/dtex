@@ -19,6 +19,10 @@ struct Args {
     /// Flag to output .tex file
     #[arg(short, long)]
     tex: bool,
+
+    /// Flag not to output .pdf file
+    #[arg(long)]
+    no_pdf: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -35,6 +39,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if tex {
         write(input.clone().replace(".d.tex", ".tex"), latex.clone())?;
+    }
+
+    if args.no_pdf {
+        return Ok(());
     }
 
     let pdf_data = tectonic::latex_to_pdf(latex)?;

@@ -33,8 +33,9 @@ pub fn to_latex(expr: &str) -> Result<String, ParseError> {
     let mut seq = String::new();
     let mut table_seq = String::new();
     let mut get_table_caption = false;
-    let mut in_front_matter = true;
+    let mut in_front_matter = expr.lines().into_iter().any(|line| line.starts_with("---"));
     let mut front_matter = String::new();
+    let insert_end_document = in_front_matter;
 
     // 結果
     let mut res = vec![];
@@ -45,6 +46,59 @@ pub fn to_latex(expr: &str) -> Result<String, ParseError> {
 
     // 数式
     let equation_regex = Regex::new(r"^(equation|align)\*?$").unwrap();
+
+    // decoration_stackのマクロ
+    macro_rules! consume_decoration_stack {
+        () => {
+            while decoration_stack.len() > 0 {
+                let name = decoration_stack.pop().unwrap();
+
+                // CSVの処理
+                if name == "csv" {
+                    let csv_seq = take(&mut table_seq);
+                    let mut reader = csv::ReaderBuilder::new()
+                        .has_headers(false)
+                        .from_reader(csv_seq.as_bytes());
+                    for (i, result) in reader.records().enumerate() {
+                        let record = result.unwrap();
+                        let row = record
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<String>>()
+                            .join(" & ");
+                        res.push(format!("{} \\\\", row));
+                        if i == 0 {
+                            res.push(r"\hline \hline".to_string());
+                        }
+                    }
+                    res.push(r"\hline".to_string());
+                    res.push(r"\end{tabular}".to_string());
+                    res.push(r"\end{table}".to_string());
+                    #[allow(unused_assignments)]
+                    {
+                        in_table = false;
+                    }
+                    continue;
+                }
+
+                if equation_regex.is_match(&name) {
+                    #[allow(unused_assignments)]
+                    {
+                        in_equation = false;
+                    }
+                    if name.starts_with("align") {
+                        let last = res.pop().unwrap();
+                        res.push(last.replace(r"\\", ""));
+                        #[allow(unused_assignments)]
+                        {
+                            in_align = false;
+                        }
+                    }
+                }
+                res.push(format!("\\end{{{}}}", name));
+            }
+        };
+    }
 
     // 行ごとに処理
     let mut lines = expr.lines();
@@ -152,44 +206,7 @@ pub fn to_latex(expr: &str) -> Result<String, ParseError> {
             }
         } else if empty_line_regex.is_match(line) {
             // 空行の処理
-            while decoration_stack.len() > 0 {
-                let name = decoration_stack.pop().unwrap();
-
-                // CSVの処理
-                if name == "csv" {
-                    let csv_seq = take(&mut table_seq);
-                    let mut reader = csv::ReaderBuilder::new()
-                        .has_headers(false)
-                        .from_reader(csv_seq.as_bytes());
-                    for (i, result) in reader.records().enumerate() {
-                        let record = result.unwrap();
-                        let row = record
-                            .iter()
-                            .map(|s| s.to_string())
-                            .collect::<Vec<String>>()
-                            .join(" & ");
-                        res.push(format!("{} \\\\", row));
-                        if i == 0 {
-                            res.push(r"\hline \hline".to_string());
-                        }
-                    }
-                    res.push(r"\hline".to_string());
-                    res.push(r"\end{tabular}".to_string());
-                    res.push(r"\end{table}".to_string());
-                    in_table = false;
-                    continue;
-                }
-
-                if equation_regex.is_match(&name) {
-                    in_equation = false;
-                    if name.starts_with("align") {
-                        let last = res.pop().unwrap();
-                        res.push(last.replace(r"\\", ""));
-                        in_align = false;
-                    }
-                }
-                res.push(format!("\\end{{{}}}", name));
-            }
+            consume_decoration_stack!();
         } else {
             // 文字ごとに処理
             let mut chars = line.chars();
@@ -250,7 +267,10 @@ pub fn to_latex(expr: &str) -> Result<String, ParseError> {
             res.push(take(&mut seq));
         }
     }
-    res.push(r"\end{document}".to_string());
+    consume_decoration_stack!();
+    if insert_end_document {
+        res.push(r"\end{document}".to_string());
+    }
 
     Ok(res.join("\n"))
 }
@@ -344,6 +364,20 @@ $\SI{163}{cm}$ & $\SI{171}{cm}$ & $\SI{178}{cm}$ \\
 \end{tabular}
 \end{table}
 \end{document}"#;
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_parse_expr_without_front_matter() {
+        let expr = r#"@@align
+e^{i\pi} = @cos \pi@ + i@sin \pi@
+=-1
+"#;
+        let got = to_latex(expr).unwrap();
+        let want = r#"\begin{align}
+e^{i\pi} &= \cos{\pi} + i\sin{\pi}\\
+&=-1
+\end{align}"#;
         assert_eq!(got, want);
     }
 }

@@ -566,7 +566,7 @@ dependencies = [
 
 [[package]]
 name = "dtex"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap 4.4.10",
  "csv",

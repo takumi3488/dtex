@@ -223,6 +223,7 @@ pub fn to_latex(expr: &str) -> Result<String, ParseError> {
         } else if empty_line_regex.is_match(line) {
             // 空行の処理
             consume_decoration_stack!();
+            res.push("".to_string());
         } else {
             // 文字ごとに処理
             let mut chars = line.chars();

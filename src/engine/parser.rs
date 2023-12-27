@@ -79,28 +79,32 @@ pub fn to_latex(expr: &str) -> Result<String, ParseError> {
                 }
 
                 // titleの処理
-                res.push(format!(
-                    "\\title{{{}}}",
-                    doc["cover"]["title"]
-                        .as_str()
-                        .ok_or(ParseError::YamlLoadError(
-                            "title is not specified".to_string()
-                        ))?
-                ));
-                res.push(format!(
-                    "\\author{{{}}}",
-                    doc["cover"]["author"]
-                        .as_str()
-                        .ok_or(ParseError::YamlLoadError(
-                            "author is not specified".to_string()
-                        ))?
-                ));
-                res.push(format!(
-                    "\\date{{{}}}",
-                    doc["cover"]["date"].as_str().unwrap_or(r"\today")
-                ));
-                res.push(r"\begin{document}".to_string());
-                res.push(r"\maketitle".to_string());
+                if !doc["cover"].is_badvalue() {
+                    res.push(format!(
+                        "\\title{{{}}}",
+                        doc["cover"]["title"]
+                            .as_str()
+                            .ok_or(ParseError::YamlLoadError(
+                                "title is not specified".to_string()
+                            ))?
+                    ));
+                    res.push(format!(
+                        "\\author{{{}}}",
+                        doc["cover"]["author"]
+                            .as_str()
+                            .ok_or(ParseError::YamlLoadError(
+                                "author is not specified".to_string()
+                            ))?
+                    ));
+                    res.push(format!(
+                        "\\date{{{}}}",
+                        doc["cover"]["date"].as_str().unwrap_or(r"\today")
+                    ));
+                    res.push(r"\begin{document}".to_string());
+                    res.push(r"\maketitle".to_string());
+                } else {
+                    res.push(r"\begin{document}".to_string());
+                }
 
                 in_front_matter = false;
             }
@@ -256,10 +260,90 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse() {
-        let expr = r#"@section 1
+    fn test_parse_expr_with_cover() {
+        let expr = r#"config:
+    fontsize: 11pt
+    packages:
+        - amsmath
+cover:
+    title: "Example"
+    author: "Author"
+    date: "2020-01-01"
+---
+@@align
+e^{i\pi} = @cos \pi@ + i@sin \pi@
+=-1
+
+@@csv ccc
+example table
+test1,test2,test3
+$@SI 163 cm@$,$@SI 171 cm@$,$@SI 178 cm@$
+
 "#;
-        let res = to_latex(expr).unwrap();
-        assert_eq!(res, r#"\section{1}"#);
+        let got = to_latex(expr).unwrap();
+        let want = r#"\documentclass[a4paper,11pt,xelatex,ja=standard]{bxjsarticle}
+\usepackage{amsmath}
+\title{Example}
+\author{Author}
+\date{2020-01-01}
+\begin{document}
+\maketitle
+\begin{align}
+e^{i\pi} &= \cos{\pi} + i\sin{\pi}\\
+&=-1
+\end{align}
+\begin{table}[hbtp]
+\centering
+\caption{example table}
+\begin{tabular}{ccc}
+\hline
+test1 & test2 & test3 \\
+\hline \hline
+$\SI{163}{cm}$ & $\SI{171}{cm}$ & $\SI{178}{cm}$ \\
+\hline
+\end{tabular}
+\end{table}
+\end{document}"#;
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_parse_expr_without_cover() {
+        let expr = r#"config:
+    fontsize: 11pt
+    packages:
+        - amsmath
+---
+@@align
+e^{i\pi} = @cos \pi@ + i@sin \pi@
+=-1
+
+@@csv ccc
+example table
+test1,test2,test3
+$@SI 163 cm@$,$@SI 171 cm@$,$@SI 178 cm@$
+
+"#;
+        let got = to_latex(expr).unwrap();
+        let want = r#"\documentclass[a4paper,11pt,xelatex,ja=standard]{bxjsarticle}
+\usepackage{amsmath}
+\begin{document}
+\begin{align}
+e^{i\pi} &= \cos{\pi} + i\sin{\pi}\\
+&=-1
+\end{align}
+\begin{table}[hbtp]
+\centering
+\caption{example table}
+\begin{tabular}{ccc}
+\hline
+test1 & test2 & test3 \\
+\hline \hline
+$\SI{163}{cm}$ & $\SI{171}{cm}$ & $\SI{178}{cm}$ \\
+\hline
+\end{tabular}
+\end{table}
+\end{document}"#;
+        assert_eq!(got, want);
     }
 }
